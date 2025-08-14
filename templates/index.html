@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧬 Visualizador Molecular AR</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ===== ESTILOS GLOBALES ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            color: #fff;
+        }
+
+        /* ===== PANTALLA DE INICIO ===== */
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+            z-index: 10;
+        }
+
+        #start-screen .card {
+            text-align: center;
+            padding: 3rem;
+            border: 2px solid #4EAFFF;
+            border-radius: 20px;
+            box-shadow: 0 0 30px #4EAFFF;
+            max-width: 500px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            animation: startGlow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes startGlow {
+            from { box-shadow: 0 0 20px #4EAFFF; }
+            to { box-shadow: 0 0 40px #4EAFFF; }
+        }
+
+        #start-screen h1 {
+            margin: 0 0 1rem;
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, #4EAFFF, #32b0f2);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        #start-screen p {
+            margin: 0 0 2rem;
+            color: #ccc;
+            line-height: 1.5;
+            font-size: 1.1rem;
+        }
+
+        #start-screen button {
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, #4EAFFF, #32b0f2);
+            border: none;
+            border-radius: 12px;
+            color: #000;
+            font-weight: 700;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(78, 175, 255, 0.4);
+        }
+
+        #start-screen button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(78, 175, 255, 0.6);
+        }
+
+        /* ===== APP PRINCIPAL ===== */
+        #app {
+            display: none;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: #000;
+        }
+
+        /* Canvas molecular - ahora es la cámara en pantalla completa */
+        #molecular-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            object-fit: cover;
+        }
+
+        /* Botón para toggle del sidebar */
+        #toggle-btn {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            width: 50px;
+            height: 50px;
+            background: #4EAFFF;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #000;
+            font-size: 1.4rem;
+            font-weight: bold;
+            z-index: 6;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px #4EAFFF;
+        }
+
+        #toggle-btn:hover {
+            background: #32b0f2;
+            transform: scale(1.1);
+        }
+
+        /* Sidebar derecho - Biblioteca de moléculas */
+        #sidebar {
+            position: absolute;
+            top: 0;
+            right: 0;
+            height: 100%;
+            width: 350px;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: -5px 0 20px rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            z-index: 5;
+            border-left: 2px solid #4EAFFF;
+        }
+
+        #sidebar.open {
+            transform: translateX(0);
+        }
+
+        #sidebar h2 {
+            margin: 0;
+            padding: 1.5rem;
+            color: #4EAFFF;
+            text-align: center;
+            font-size: 1.5rem;
+            border-bottom: 1px solid rgba(78, 175, 255, 0.3);
+            background: rgba(78, 175, 255, 0.1);
+        }
+
+        /* Lista de moléculas */
+        #molecule-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .molecule-item {
+            background: rgba(78, 175, 255, 0.1);
+            border: 2px solid transparent;
+            border-radius: 12px;
+            margin: 0.8rem 0;
+            padding: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .molecule-item:hover {
+            border-color: #4EAFFF;
+            background: rgba(78, 175, 255, 0.2);
+            box-shadow: 0 0 15px rgba(78, 175, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .molecule-item.active {
+            border-color: #4EAFFF;
+            background: rgba(78, 175, 255, 0.3);
+            box-shadow: 0 0 20px rgba(78, 175, 255, 0.6);
+        }
+
+        .molecule-item h3 {
+            color: #fff;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .molecule-item .formula {
+            color: #4EAFFF;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .molecule-item .smiles {
+            color: #ccc;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 0.5rem;
+            border-radius: 6px;
+            word-break: break-all;
+            margin-bottom: 0.5rem;
+        }
+
+        .molecule-item .description {
+            color: #aaa;
+            font-size: 0.85rem;
+            line-height: 1.3;
+        }
+
+        /* Área de información inferior */
+        #info-box {
+            position: absolute;
+            bottom: 1.5rem;
+            left: 1.5rem;
+            max-width: 400px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #4EAFFF;
+            box-shadow: 0 0 15px #4EAFFF;
+            padding: 1.2rem;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            z-index: 4;
+        }
+
+        #info-box h3 {
+            color: #4EAFFF;
+            margin-bottom: 0.8rem;
+            font-size: 1.2rem;
+        }
+
+        #info-box .instruction {
+            margin: 0.4rem 0;
+            font-size: 0.9rem;
+            color: #ccc;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Estado de interacción superior centro */
+        #interaction-status {
+            position: absolute;
+            top: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #4EAFFF;
+            border-radius: 20px;
+            padding: 1rem 2rem;
+            backdrop-filter: blur(10px);
+            z-index: 6;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            min-width: 300px;
+            justify-content: center;
+            box-shadow: 0 0 15px #4EAFFF;
+        }
+
+        #interaction-status.active {
+            border-color: #10b981;
+            box-shadow: 0 0 20px #10b981;
+            animation: interactionPulse 1.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes interactionPulse {
+            from { box-shadow: 0 0 15px #10b981; }
+            to { box-shadow: 0 0 30px #10b981; }
+        }
+
+        #interaction-status .status-icon {
+            font-size: 1.3rem;
+        }
+
+        #interaction-status .status-text {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        /* Input SMILES personalizado */
+        .custom-smiles {
+            padding: 1rem;
+            border-top: 1px solid rgba(78, 175, 255, 0.3);
+            background: rgba(78, 175, 255, 0.05);
+        }
+
+        .custom-smiles h4 {
+            color: #4EAFFF;
+            margin-bottom: 0.8rem;
+            font-size: 1rem;
+        }
+
+        .custom-smiles textarea {
+            width: 100%;
+            height: 80px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(78, 175, 255, 0.4);
+            border-radius: 8px;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            padding: 0.8rem;
+            resize: vertical;
+            margin-bottom: 0.8rem;
+        }
+
+        .custom-smiles textarea:focus {
+            outline: none;
+            border-color: #4EAFFF;
+            box-shadow: 0 0 10px rgba(78, 175, 255, 0.4);
+        }
+
+        .custom-smiles button {
+            width: 100%;
+            padding: 0.8rem;
+            background: linear-gradient(135deg, #4EAFFF, #32b0f2);
+            border: none;
+            border-radius: 8px;
+            color: #000;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .custom-smiles button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(78, 175, 255, 0.4);
+        }
+
+        /* Controles adicionales */
+        .controls {
+            padding: 1rem;
+            border-top: 1px solid rgba(78, 175, 255, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .control-btn {
+            padding: 0.8rem;
+            background: rgba(78, 175, 255, 0.2);
+            border: 1px solid #4EAFFF;
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .control-btn:hover {
+            background: rgba(78, 175, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        /* Scrollbar personalizado */
+        #molecule-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #molecule-list::-webkit-scrollbar-track {
+            background: rgba(78, 175, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        #molecule-list::-webkit-scrollbar-thumb {
+            background: rgba(78, 175, 255, 0.6);
+            border-radius: 4px;
+        }
+
+        #molecule-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(78, 175, 255, 0.8);
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            #sidebar {
+                width: 320px;
+            }
+
+            #info-box {
+                max-width: 320px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            #sidebar {
+                width: 100%;
+            }
+
+            #info-box {
+                position: relative;
+                margin: 1rem;
+                max-width: none;
+            }
+
+            #interaction-status {
+                position: relative;
+                margin: 1rem;
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- PANTALLA DE INICIO -->
+    <div id="start-screen">
+        <div class="card">
+            <h1>🧬 Visualizador Molecular AR</h1>
+            <p>Manipula moléculas en tiempo real usando códigos SMILES.<br>
+            Selecciona de la biblioteca o introduce tu propio código SMILES.</p>
+            <button onclick="startApp()">🔬 Iniciar Visualizador</button>
+        </div>
+    </div>
+
+    <!-- APP PRINCIPAL -->
+    <div id="app">
+        <!-- Cámara en pantalla completa con stream molecular -->
+        <img id="molecular-canvas" src="{{ url_for('camara') }}" alt="Vista Molecular AR">
+
+        <!-- Estado de interacción -->
+        <div id="interaction-status">
+            <div class="status-icon">🧬</div>
+            <div class="status-text" id="status-text">Selecciona una molécula</div>
+        </div>
+
+        <!-- Información inferior -->
+        <div id="info-box">
+            <h3>📋 Controles de Gestos</h3>
+            <div class="instruction">
+                <span>✊</span> Puño cerrado → Mover molécula
+            </div>
+            <div class="instruction">
+                <span>🖐️</span> Mano abierta → Rotar en 3D
+            </div>
+            <div class="instruction">
+                <span>✌️</span> Dos dedos → Hacer zoom
+            </div>
+            <div class="instruction">
+                <span>🤝</span> Dos manos juntas → Crear interacción
+            </div>
+        </div>
+
+        <!-- Botón toggle sidebar -->
+        <button id="toggle-btn">▶</button>
+
+        <!-- Sidebar - Biblioteca de moléculas -->
+        <div id="sidebar">
+            <h2>🧪 Biblioteca Molecular</h2>
+            
+            <div id="molecule-list">
+                <!-- Estradiol -->
+                <div class="molecule-item" data-smiles="C[C@]12CC[C@H]3[C@H]([C@@H]1CC[C@@H]2O)CCC4=C3C=CC(=C4)O" data-name="Estradiol">
+                    <h3>🟢 Estradiol</h3>
+                    <div class="formula">C₁₈H₂₄O₂</div>
+                    <div class="smiles">C[C@]12CC[C@H]3[C@H]([C@@H]1CC[C@@H]2O)CCC4=C3C=CC(=C4)O</div>
+                    <div class="description">Hormona esteroide principal del estrógeno. Esencial para el desarrollo de características sexuales femeninas.</div>
+                </div>
+
+                <!-- Fulvestrant -->
+                <div class="molecule-item" data-smiles="CC(C)(C)C(C)(C)C(C)(C)CCCCCCCCCC(F)(F)C(F)(F)C(F)(F)C(F)(F)C(F)(F)C1=CC2=C(C=C1O)C3CCC4=C(C3CC2)C=C(C=C4)O" data-name="Fulvestrant">
+                    <h3>🟠 Fulvestrant</h3>
+                    <div class="formula">C₃₂H₄₇F₅O₃S</div>
+                    <div class="smiles">CC(C)(C)C(C)(C)C(C)(C)CCCCCCCCCC(F)(F)C(F)(F)C(F)(F)C(F)(F)C(F)(F)C1=CC2=C(C=C1O)C3CCC4=C(C3CC2)C=C(C=C4)O</div>
+                    <div class="description">Antagonista selectivo del receptor de estrógeno usado en el tratamiento del cáncer de mama.</div>
+                </div>
+
+                <!-- Aspirina -->
+                <div class="molecule-item" data-smiles="CC(=O)OC1=CC=CC=C1C(=O)O" data-name="Aspirina">
+                    <h3>🔴 Aspirina</h3>
+                    <div class="formula">C₉H₈O₄</div>
+                    <div class="smiles">CC(=O)OC1=CC=CC=C1C(=O)O</div>
+                    <div class="description">Analgésico y antiinflamatorio común. Inhibe la enzima ciclooxigenasa.</div>
+                </div>
+
+                <!-- Cafeína -->
+                <div class="molecule-item" data-smiles="CN1C=NC2=C1C(=O)N(C(=O)N2C)C" data-name="Cafeína">
+                    <h3>🟤 Cafeína</h3>
+                    <div class="formula">C₈H₁₀N₄O₂</div>
+                    <div class="smiles">CN1C=NC2=C1C(=O)N(C(=O)N2C)C</div>
+                    <div class="description">Estimulante del sistema nervioso central. Bloquea los receptores de adenosina.</div>
+                </div>
+
+                <!-- Penicilina -->
+                <div class="molecule-item" data-smiles="CC1([C@@H](N2[C@H](S1)[C@@H](C2=O)NC(=O)CC3=CC=CC=C3)C(=O)O)C" data-name="Penicilina G">
+                    <h3>🟡 Penicilina G</h3>
+                    <div class="formula">C₁₆H₁₈N₂O₄S</div>
+                    <div class="smiles">CC1([C@@H](N2[C@H](S1)[C@@H](C2=O)NC(=O)CC3=CC=CC=C3)C(=O)O)C</div>
+                    <div class="description">Antibiótico beta-lactámico. Inhibe la síntesis de la pared celular bacteriana.</div>
+                </div>
+
+                <!-- Morfina -->
+                <div class="molecule-item" data-smiles="CN1CC[C@]23c4c5ccc(O)c4O[C@H]2[C@@H](O)C=C[C@H]3[C@H]1C5" data-name="Morfina">
+                    <h3>🟣 Morfina</h3>
+                    <div class="formula">C₁₇H₁₉NO₃</div>
+                    <div class="smiles">CN1CC[C@]23c4c5ccc(O)c4O[C@H]2[C@@H](O)C=C[C@H]3[C@H]1C5</div>
+                    <div class="description">Analgésico opioide potente. Se une a receptores mu-opioides en el sistema nervioso.</div>
+                </div>
+            </div>
+
+            <!-- Input SMILES personalizado -->
+            <div class="custom-smiles">
+                <h4>✏️ SMILES Personalizado</h4>
+                <textarea id="custom-smiles-input" placeholder="Introduce tu código SMILES aquí...
+Ejemplo: CCO (etanol)"></textarea>
+                <button onclick="loadCustomSMILES()">Cargar Molécula</button>
+            </div>
+
+            <!-- Controles adicionales -->
+            <div class="controls">
+                <button class="control-btn" onclick="resetMolecules()">🔄 Reiniciar</button>
+                <button class="control-btn" onclick="captureScreen()">📸 Capturar</button>
+                <button class="control-btn" onclick="toggleFullscreen()">🔍 Pantalla Completa</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let currentMolecule = null;
+        let isAppRunning = false;
+
+        // Iniciar aplicación
+        function startApp() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+            isAppRunning = true;
+            
+            initWebcam();
+            initSidebar();
+            startStatusUpdates();
+            
+            updateStatus('🔬 Sistema iniciado - Selecciona una molécula');
+        }
+
+        // Inicializar webcam - Ya no necesaria, se usa el stream de la cámara
+        async function initWebcam() {
+            // La webcam ahora se maneja a través del stream de Flask
+            console.log('📹 Usando stream de cámara desde Flask');
+        }
+
+        // Inicializar sidebar y eventos
+        function initSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const toggle = document.getElementById('toggle-btn');
+            const moleculeItems = document.querySelectorAll('.molecule-item');
+
+            // Toggle sidebar
+            toggle.addEventListener('click', () => {
+                sidebar.classList.toggle('open');
+                toggle.textContent = sidebar.classList.contains('open') ? '◀' : '▶';
+            });
+
+            // Selección de moléculas
+            moleculeItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    // Remover selección anterior
+                    document.querySelectorAll('.molecule-item').forEach(el => el.classList.remove('active'));
+                    
+                    // Seleccionar nueva molécula
+                    item.classList.add('active');
+                    
+                    const smiles = item.dataset.smiles;
+                    const name = item.dataset.name;
+                    
+                    loadMolecule(smiles, name);
+                    
+                    // Cerrar sidebar en móviles
+                    if (window.innerWidth <= 768) {
+                        sidebar.classList.remove('open');
+                        toggle.textContent = '▶';
+                    }
+                });
+            });
+        }
+
+        // Cargar molécula - CORREGIDO
+        function loadMolecule(smiles, name) {
+            currentMolecule = { smiles, name };
+            
+            updateStatus(`🔄 Cargando ${name}...`);
+            
+            fetch('/load_molecule', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ smiles: smiles, name: name })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Respuesta del servidor:', data);
+                if (data.success) {
+                    updateStatus(`🧬 ${name} cargada - Usa gestos para manipular`);
+                    document.getElementById('interaction-status').classList.add('active');
+                } else {
+                    updateStatus(`❌ Error: ${data.error}`);
+                    console.error('Error del servidor:', data.error);
+                }
+            })
+            .catch(error => {
+                updateStatus(`❌ Error de conexión: ${error.message}`);
+                console.error('Error completo:', error);
+            });
+        }
+
+        // Cargar SMILES personalizado
+        function loadCustomSMILES() {
+            const customInput = document.getElementById('custom-smiles-input');
+            const smiles = customInput.value.trim();
+            
+            if (!smiles) {
+                updateStatus('⚠️ Introduce un código SMILES válido');
+                return;
+            }
+            
+            // Remover selecciones anteriores
+            document.querySelectorAll('.molecule-item').forEach(el => el.classList.remove('active'));
+            
+            loadMolecule(smiles, 'Molécula Personalizada');
+            customInput.value = '';
+        }
+
+        // Actualizar estado
+        function updateStatus(message) {
+            document.getElementById('status-text').textContent = message;
+        }
+
+        // Actualización de estado en tiempo real
+        function startStatusUpdates() {
+            setInterval(() => {
+                if (!isAppRunning) return;
+                
+                fetch('/molecular_data')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.interaction_status) {
+                            const bindingStrength = data.interaction_status.binding_strength;
+                            const percentage = Math.round(bindingStrength * 100);
+                            
+                            if (data.interaction_status.is_bound) {
+                                updateStatus(`⚡ Interacción activa - Fuerza: ${percentage}%`);
+                                document.getElementById('interaction-status').classList.add('active');
+                            } else if (bindingStrength > 0) {
+                                updateStatus(`🔗 Detectando interacción - ${percentage}%`);
+                            } else if (currentMolecule) {
+                                updateStatus(`🧬 ${currentMolecule.name} - Usa gestos para manipular`);
+                                document.getElementById('interaction-status').classList.remove('active');
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.log('Error actualizando estado:', error);
+                    });
+            }, 1000);
+        }
+
+        // Funciones de control
+        function resetMolecules() {
+            fetch('/reset_molecules', { method: 'POST' })
+                .then(() => {
+                    updateStatus('🔄 Sistema reiniciado');
+                    document.querySelectorAll('.molecule-item').forEach(el => el.classList.remove('active'));
+                    document.getElementById('interaction-status').classList.remove('active');
+                    currentMolecule = null;
+                });
+        }
+
+        function captureScreen() {
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            updateStatus(`📸 Pantalla capturada: ${timestamp}`);
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+                updateStatus('🔍 Modo pantalla completa activado');
+            } else {
+                document.exitFullscreen();
+                updateStatus('🔍 Saliendo de pantalla completa');
+            }
+        }
+
+        // Manejo de teclas
+        document.addEventListener('keydown', function(event) {
+            if (!isAppRunning) return;
+            
+            switch(event.key) {
+                case 'r':
+                case 'R':
+                    resetMolecules();
+                    break;
+                case 'c':
+                case 'C':
+                    captureScreen();
+                    break;
+                case 'f':
+                case 'F':
+                    toggleFullscreen();
+                    break;
+                case 'Escape':
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen();
+                    } else {
+                        // Cerrar sidebar si está abierto
+                        const sidebar = document.getElementById('sidebar');
+                        if (sidebar.classList.contains('open')) {
+                            sidebar.classList.remove('open');
+                            document.getElementById('toggle-btn').textContent = '▶';
+                        }
+                    }
+                    break;
+            }
+        });
+
+        // Permitir Enter en textarea para cargar SMILES
+        document.addEventListener('DOMContentLoaded', function() {
+            const customInput = document.getElementById('custom-smiles-input');
+            if (customInput) {
+                customInput.addEventListener('keydown', function(event) {
+                    if (event.key === 'Enter' && event.ctrlKey) {
+                        event.preventDefault();
+                        loadCustomSMILES();
+                    }
+                });
+            }
+        });
+
+        // Efectos visuales adicionales
+        function addVisualEffects() {
+            // Efecto de respiración en el área principal cuando hay interacción
+            const mainArea = document.getElementById('main-area');
+            
+            setInterval(() => {
+                if (currentMolecule) {
+                    // Agregar un sutil efecto de partículas en el fondo
+                    const particle = document.createElement('div');
+                    particle.style.cssText = `
+                        position: absolute;
+                        width: 2px;
+                        height: 2px;
+                        background: #4EAFFF;
+                        border-radius: 50%;
+                        left: ${Math.random() * 100}%;
+                        top: ${Math.random() * 100}%;
+                        opacity: 0.3;
+                        animation: particle-float 4s ease-out forwards;
+                        pointer-events: none;
+                    `;
+                    
+                    mainArea.appendChild(particle);
+                    
+                    setTimeout(() => {
+                        if (particle.parentNode) {
+                            particle.remove();
+                        }
+                    }, 4000);
+                }
+            }, 2000);
+        }
+
+        // Inicializar efectos cuando se carga la página
+        document.addEventListener('DOMContentLoaded', function() {
+            addVisualEffects();
+            
+            // Agregar estilos para animaciones de partículas
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes particle-float {
+                    0% {
+                        opacity: 0.3;
+                        transform: translateY(0) scale(1);
+                    }
+                    50% {
+                        opacity: 0.6;
+                        transform: translateY(-20px) scale(1.2);
+                    }
+                    100% {
+                        opacity: 0;
+                        transform: translateY(-40px) scale(0.8);
+                    }
+                }
+                
+                @keyframes molecule-pulse {
+                    0%, 100% {
+                        transform: scale(1);
+                        opacity: 1;
+                    }
+                    50% {
+                        transform: scale(1.02);
+                        opacity: 0.9;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        });
+
+        // Funciones para integración con backend
+        class MolecularAPI {
+            static async getCurrentMolecule() {
+                try {
+                    const response = await fetch('/current_molecule');
+                    return await response.json();
+                } catch (error) {
+                    console.error('Error obteniendo molécula actual:', error);
+                    return null;
+                }
+            }
+            
+            static async getMolecularProperties(smiles) {
+                try {
+                    const response = await fetch('/molecular_properties', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ smiles: smiles })
+                    });
+                    return await response.json();
+                } catch (error) {
+                    console.error('Error obteniendo propiedades:', error);
+                    return null;
+                }
+            }
+            
+            static async validateSMILES(smiles) {
+                try {
+                    const response = await fetch('/validate_smiles', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ smiles: smiles })
+                    });
+                    return await response.json();
+                } catch (error) {
+                    console.error('Error validando SMILES:', error);
+                    return { valid: false, error: 'Error de conexión' };
+                }
+            }
+        }
+
+        // Cargar SMILES personalizado - MEJORADO
+        async function loadCustomSMILES() {
+            const customInput = document.getElementById('custom-smiles-input');
+            const smiles = customInput.value.trim();
+            
+            if (!smiles) {
+                updateStatus('⚠️ Introduce un código SMILES válido');
+                return;
+            }
+            
+            updateStatus('🔍 Validando código SMILES...');
+            
+            try {
+                // Validar SMILES antes de cargar
+                const validationResponse = await fetch('/validate_smiles', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({smiles: smiles})
+                });
+                
+                const validation = await validationResponse.json();
+                
+                if (!validation.valid) {
+                    updateStatus(`❌ SMILES inválido: ${validation.error}`);
+                    return;
+                }
+                
+                // Remover selecciones anteriores
+                document.querySelectorAll('.molecule-item').forEach(el => el.classList.remove('active'));
+                
+                loadMolecule(smiles, 'Molécula Personalizada');
+                customInput.value = '';
+                
+            } catch (error) {
+                updateStatus(`❌ Error de validación: ${error.message}`);
+                console.error('Error:', error);
+            }
+        }
+
+        // Función para exportar datos de la sesión
+        function exportSessionData() {
+            const sessionData = {
+                timestamp: new Date().toISOString(),
+                current_molecule: currentMolecule,
+                session_duration: Date.now() - (window.sessionStart || Date.now()),
+                interactions_detected: 0, // Se actualizará con datos reales
+                molecules_loaded: [], // Historial de moléculas cargadas
+            };
+            
+            const blob = new Blob([JSON.stringify(sessionData, null, 2)], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `session_${Date.now()}.json`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            
+            updateStatus('📁 Datos de sesión exportados');
+        }
+
+        // Añadir función de exportación a los controles
+        document.addEventListener('DOMContentLoaded', function() {
+            const controlsDiv = document.querySelector('.controls');
+            if (controlsDiv) {
+                const exportBtn = document.createElement('button');
+                exportBtn.className = 'control-btn';
+                exportBtn.innerHTML = '💾 Exportar Datos';
+                exportBtn.onclick = exportSessionData;
+                controlsDiv.appendChild(exportBtn);
+            }
+            
+            // Marcar inicio de sesión
+            window.sessionStart = Date.now();
+        });
+
+        // Mejorar la detección de errores
+        window.addEventListener('error', function(event) {
+            console.error('Error en la aplicación:', event.error);
+            updateStatus('⚠️ Error detectado - Revisa la consola');
+        });
+
+        // Manejo de pérdida de conexión
+        window.addEventListener('online', function() {
+            updateStatus('🌐 Conexión restaurada');
+        });
+
+        window.addEventListener('offline', function() {
+            updateStatus('⚠️ Sin conexión a internet');
+        });
+
+        // Optimización para dispositivos móviles
+        if ('ontouchstart' in window) {
+            // Ajustes para dispositivos táctiles
+            document.body.classList.add('touch-device');
+            
+            // Prevenir zoom en inputs
+            document.addEventListener('touchstart', function(event) {
+                if (event.touches.length > 1) {
+                    event.preventDefault();
+                }
+            }, { passive: false });
+        }
+
+        // Información de ayuda contextual
+        function showHelp() {
+            const helpContent = `
+                🧬 GUÍA RÁPIDA:
+                
+                📱 CONTROLES:
+                • R = Reiniciar
+                • C = Capturar
+                • F = Pantalla completa
+                • ESC = Cerrar sidebar/salir fullscreen
+                • Ctrl+Enter = Cargar SMILES personalizado
+                
+                👋 GESTOS:
+                • Puño cerrado = Mover molécula
+                • Mano abierta = Rotar en 3D
+                • Dos dedos = Zoom
+                • Dos manos juntas = Interacción
+                
+                🧪 MOLÉCULAS:
+                • Biblioteca predefinida disponible
+                • SMILES personalizados soportados
+                • Validación automática de códigos
+            `;
+            
+            alert(helpContent);
+        }
+
+        // Agregar tecla de ayuda
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'h' || event.key === 'H') {
+                if (event.ctrlKey) {
+                    event.preventDefault();
+                    showHelp();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
